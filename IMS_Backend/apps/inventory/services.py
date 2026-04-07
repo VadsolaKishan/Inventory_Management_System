@@ -1,8 +1,10 @@
 from django.db import transaction
 from django.db.models import Sum
+from django.db.models.functions import Coalesce
 from django.utils import timezone
 from rest_framework.exceptions import ValidationError
 
+from apps.inventory.cache_utils import bump_inventory_cache_version
 from apps.inventory.models import (
     Delivery,
     DocumentStatus,
@@ -28,12 +30,23 @@ class StockService:
 
     @staticmethod
     def _refresh_product_stock(product_ids):
-        for product_id in product_ids:
-            total = (
-                StockBalance.objects.filter(product_id=product_id).aggregate(total=Sum('quantity'))['total']
-                or 0
-            )
-            Product.objects.filter(pk=product_id).update(current_stock=total)
+        unique_product_ids = sorted({int(product_id) for product_id in product_ids if product_id})
+        if not unique_product_ids:
+            return
+
+        totals = dict(
+            StockBalance.objects.filter(product_id__in=unique_product_ids)
+            .values('product_id')
+            .annotate(total_quantity=Coalesce(Sum('quantity'), 0))
+            .values_list('product_id', 'total_quantity')
+        )
+
+        products = list(Product.objects.filter(id__in=unique_product_ids).only('id', 'current_stock'))
+        for product in products:
+            product.current_stock = int(totals.get(product.id, 0) or 0)
+
+        if products:
+            Product.objects.bulk_update(products, ['current_stock'])
 
     @staticmethod
     def _create_ledger_entry(
@@ -89,6 +102,7 @@ class StockService:
             receipt.validated_at = timezone.now()
             receipt.save(update_fields=['is_posted', 'validated_at', 'updated_at'])
             cls._refresh_product_stock(affected_products)
+            bump_inventory_cache_version()
 
         return receipt
 
@@ -140,6 +154,7 @@ class StockService:
             delivery.validated_at = timezone.now()
             delivery.save(update_fields=['is_posted', 'validated_at', 'updated_at'])
             cls._refresh_product_stock(affected_products)
+            bump_inventory_cache_version()
 
         return delivery
 
@@ -208,6 +223,7 @@ class StockService:
             transfer.validated_at = timezone.now()
             transfer.save(update_fields=['is_posted', 'validated_at', 'updated_at'])
             cls._refresh_product_stock(affected_products)
+            bump_inventory_cache_version()
 
         return transfer
 
@@ -257,6 +273,7 @@ class StockService:
                 ]
             )
             cls._refresh_product_stock({adjustment.product_id})
+            bump_inventory_cache_version()
 
         return adjustment
 

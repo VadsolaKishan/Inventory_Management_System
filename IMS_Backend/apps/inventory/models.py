@@ -25,7 +25,7 @@ class MovementType(models.TextChoices):
 
 
 class Supplier(models.Model):
-	name = models.CharField(max_length=150)
+	name = models.CharField(max_length=150, db_index=True)
 	email = models.EmailField(blank=True)
 	phone = models.CharField(max_length=30, blank=True)
 	address = models.TextField(blank=True)
@@ -41,7 +41,7 @@ class Supplier(models.Model):
 
 
 class Customer(models.Model):
-	name = models.CharField(max_length=150)
+	name = models.CharField(max_length=150, db_index=True)
 	email = models.EmailField(blank=True)
 	phone = models.CharField(max_length=30, blank=True)
 	address = models.TextField(blank=True)
@@ -131,6 +131,7 @@ class DocumentBase(models.Model):
 		max_length=20,
 		choices=DocumentStatus.choices,
 		default=DocumentStatus.DRAFT,
+		db_index=True,
 	)
 	notes = models.TextField(blank=True)
 	created_by = models.ForeignKey(
@@ -140,8 +141,8 @@ class DocumentBase(models.Model):
 		blank=True,
 		related_name='%(class)s_created',
 	)
-	created_at = models.DateTimeField(auto_now_add=True)
-	updated_at = models.DateTimeField(auto_now=True)
+	created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+	updated_at = models.DateTimeField(auto_now=True, db_index=True)
 	validated_at = models.DateTimeField(null=True, blank=True)
 	is_posted = models.BooleanField(default=False)
 

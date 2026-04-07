@@ -22,7 +22,7 @@ class UserSerializer(serializers.ModelSerializer):
 
 class RegisterSerializer(serializers.ModelSerializer):
     confirm_password = serializers.CharField(write_only=True)
-    password = serializers.CharField(write_only=True, min_length=8)
+    password = serializers.CharField(write_only=True, min_length=8, max_length=20, trim_whitespace=False)
 
     class Meta:
         model = User
@@ -55,7 +55,7 @@ class RegisterSerializer(serializers.ModelSerializer):
 
 class BaseCreateUserSerializer(serializers.ModelSerializer):
     confirm_password = serializers.CharField(write_only=True)
-    password = serializers.CharField(write_only=True, min_length=8)
+    password = serializers.CharField(write_only=True, min_length=8, max_length=20, trim_whitespace=False)
     is_active = serializers.BooleanField(default=True)
 
     class Meta:
@@ -105,8 +105,14 @@ class CreateStaffSerializer(BaseCreateUserSerializer):
 
 
 class LoginSerializer(serializers.Serializer):
-    username = serializers.CharField()
-    password = serializers.CharField(write_only=True)
+    login = serializers.CharField(max_length=150, trim_whitespace=True)
+    password = serializers.CharField(write_only=True, trim_whitespace=False)
+
+    def validate_login(self, value):
+        cleaned = value.strip()
+        if not cleaned:
+            raise serializers.ValidationError('Login is required.')
+        return cleaned
 
 
 class PasswordResetOTPRequestSerializer(serializers.Serializer):
@@ -116,7 +122,7 @@ class PasswordResetOTPRequestSerializer(serializers.Serializer):
 class PasswordResetOTPConfirmSerializer(serializers.Serializer):
     email = serializers.EmailField()
     otp_code = serializers.CharField(max_length=6, min_length=6)
-    new_password = serializers.CharField(write_only=True, min_length=8)
+    new_password = serializers.CharField(write_only=True, min_length=8, max_length=20, trim_whitespace=False)
 
     def validate_new_password(self, value):
         validate_password(value)

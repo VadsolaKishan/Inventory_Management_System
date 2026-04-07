@@ -160,3 +160,9 @@ body {
     linear-gradient(to bottom, rgba(27, 99, 222, 0.06) 1px, transparent 1px);
   background-size: 32px 32px;
 }
+
+/* Ensure only the custom password visibility toggle is shown. */
+input[type='password']::-ms-reveal,
+input[type='password']::-ms-clear {
+  display: none;
+}

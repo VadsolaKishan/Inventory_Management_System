@@ -128,15 +128,20 @@ def validate_transfer_source_stock(from_location, items):
     if not from_location:
         return
 
+    normalized_items = []
     for item in items:
         product = item['product'] if isinstance(item, dict) else item.product
         quantity = item['quantity'] if isinstance(item, dict) else item.quantity
-        available = (
-            StockBalance.objects.filter(product=product, location=from_location)
-            .values_list('quantity', flat=True)
-            .first()
-            or 0
-        )
+        normalized_items.append((product.id, quantity))
+
+    product_ids = [product_id for product_id, _ in normalized_items]
+    stock_by_product = dict(
+        StockBalance.objects.filter(location=from_location, product_id__in=product_ids)
+        .values_list('product_id', 'quantity')
+    )
+
+    for product_id, quantity in normalized_items:
+        available = int(stock_by_product.get(product_id, 0) or 0)
 
         if available < quantity:
             raise serializers.ValidationError({'detail': 'Insufficient stock for transfer'})

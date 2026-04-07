@@ -1,4 +1,6 @@
-from django.db.models import F, Q, Sum
+from django.conf import settings
+from django.core.cache import cache
+from django.db.models import Count, F, Q, Sum
 from django.db.models.functions import Coalesce
 from rest_framework import status, viewsets
 from rest_framework.exceptions import PermissionDenied, ValidationError
@@ -16,6 +18,7 @@ from apps.inventory.models import (
 	StockLedger,
 	Supplier,
 )
+from apps.inventory.cache_utils import build_inventory_cache_key, bump_inventory_cache_version
 from apps.inventory.serializers import (
 	CustomerSerializer,
 	DeliverySerializer,
@@ -110,6 +113,7 @@ class PostedDocumentProtectionMixin:
 		if instance.is_posted:
 			raise ValidationError({'detail': 'Posted documents cannot be deleted.'})
 		instance.delete()
+		bump_inventory_cache_version()
 
 
 class StaffApprovalRestrictionMixin:
@@ -155,6 +159,7 @@ class ReceiptViewSet(StaffApprovalRestrictionMixin, PostedDocumentProtectionMixi
 		receipt = serializer.save(created_by=self.request.user)
 		if receipt.status == DocumentStatus.DONE:
 			StockService.process_receipt(receipt)
+		bump_inventory_cache_version()
 
 	def perform_update(self, serializer):
 		old_status = serializer.instance.status
@@ -164,6 +169,7 @@ class ReceiptViewSet(StaffApprovalRestrictionMixin, PostedDocumentProtectionMixi
 		receipt = serializer.save()
 		if old_status != DocumentStatus.DONE and receipt.status == DocumentStatus.DONE:
 			StockService.process_receipt(receipt)
+		bump_inventory_cache_version()
 
 
 class DeliveryViewSet(StaffApprovalRestrictionMixin, PostedDocumentProtectionMixin, viewsets.ModelViewSet):
@@ -197,6 +203,7 @@ class DeliveryViewSet(StaffApprovalRestrictionMixin, PostedDocumentProtectionMix
 		delivery = serializer.save(created_by=self.request.user)
 		if delivery.status == DocumentStatus.DONE:
 			StockService.process_delivery(delivery)
+		bump_inventory_cache_version()
 
 	def perform_update(self, serializer):
 		old_status = serializer.instance.status
@@ -206,6 +213,7 @@ class DeliveryViewSet(StaffApprovalRestrictionMixin, PostedDocumentProtectionMix
 		delivery = serializer.save()
 		if old_status != DocumentStatus.DONE and delivery.status == DocumentStatus.DONE:
 			StockService.process_delivery(delivery)
+		bump_inventory_cache_version()
 
 
 class InternalTransferViewSet(StaffApprovalRestrictionMixin, PostedDocumentProtectionMixin, viewsets.ModelViewSet):
@@ -248,6 +256,7 @@ class InternalTransferViewSet(StaffApprovalRestrictionMixin, PostedDocumentProte
 		if transfer.status == DocumentStatus.DONE:
 			self._ensure_transfer_has_stock(transfer)
 			StockService.process_transfer(transfer)
+		bump_inventory_cache_version()
 
 	def perform_update(self, serializer):
 		old_status = serializer.instance.status
@@ -258,6 +267,7 @@ class InternalTransferViewSet(StaffApprovalRestrictionMixin, PostedDocumentProte
 		if old_status != DocumentStatus.DONE and transfer.status == DocumentStatus.DONE:
 			self._ensure_transfer_has_stock(transfer)
 			StockService.process_transfer(transfer)
+		bump_inventory_cache_version()
 
 
 class StockAdjustmentViewSet(PostedDocumentProtectionMixin, viewsets.ModelViewSet):
@@ -287,6 +297,7 @@ class StockAdjustmentViewSet(PostedDocumentProtectionMixin, viewsets.ModelViewSe
 		adjustment = serializer.save(created_by=self.request.user)
 		if adjustment.status == DocumentStatus.DONE:
 			StockService.process_adjustment(adjustment)
+		bump_inventory_cache_version()
 
 	def perform_update(self, serializer):
 		old_status = serializer.instance.status
@@ -295,12 +306,18 @@ class StockAdjustmentViewSet(PostedDocumentProtectionMixin, viewsets.ModelViewSe
 			old_status != DocumentStatus.DONE and adjustment.status == DocumentStatus.DONE
 		) or (adjustment.status == DocumentStatus.DONE and not adjustment.is_posted):
 			StockService.process_adjustment(adjustment)
+		bump_inventory_cache_version()
 
 
 class DashboardViewSet(viewsets.ViewSet):
 	permission_classes = [IsAuthenticated, IsManagerOrSuperUser]
 
 	def list(self, request):
+		cache_key = build_inventory_cache_key('dashboard', request, user_scope=str(request.user.id))
+		cached_payload = cache.get(cache_key)
+		if cached_payload is not None:
+			return Response(cached_payload, status=status.HTTP_200_OK)
+
 		document_type = request.query_params.get('document_type')
 		status_filter = request.query_params.get('status')
 		warehouse = request.query_params.get('warehouse')
@@ -377,15 +394,25 @@ class DashboardViewSet(viewsets.ViewSet):
 				return 0
 			return queryset.count()
 
-		payload = {
-			'totals': {
-				'products_in_stock': products_with_stock.filter(stock_quantity__gt=0).count(),
-				'units_in_stock': products_with_stock.aggregate(total_units=Sum('stock_quantity'))['total_units'] or 0,
-				'low_stock': products_with_stock.filter(
+		product_totals = products_with_stock.aggregate(
+			products_in_stock=Count('id', filter=Q(stock_quantity__gt=0)),
+			units_in_stock=Coalesce(Sum('stock_quantity'), 0),
+			low_stock=Count(
+				'id',
+				filter=Q(
 					stock_quantity__gt=0,
 					stock_quantity__lte=F('reorder_level'),
-				).count(),
-				'out_of_stock': products_with_stock.filter(stock_quantity=0).count(),
+				),
+			),
+			out_of_stock=Count('id', filter=Q(stock_quantity=0)),
+		)
+
+		payload = {
+			'totals': {
+				'products_in_stock': product_totals['products_in_stock'] or 0,
+				'units_in_stock': product_totals['units_in_stock'] or 0,
+				'low_stock': product_totals['low_stock'] or 0,
+				'out_of_stock': product_totals['out_of_stock'] or 0,
 			},
 			'pending': {
 				'receipts': doc_count('receipts', pending_queryset(receipts)),
@@ -406,12 +433,40 @@ class DashboardViewSet(viewsets.ViewSet):
 				'category': category,
 			},
 		}
+		cache.set(
+			cache_key,
+			payload,
+			timeout=getattr(settings, 'DASHBOARD_CACHE_TTL_SECONDS', 60),
+		)
 		return Response(payload, status=status.HTTP_200_OK)
 
 
 class AlertViewSet(viewsets.ReadOnlyModelViewSet):
 	serializer_class = LowStockAlertSerializer
 	permission_classes = [IsAuthenticated, IsManagerOrSuperUser]
+
+	def list(self, request, *args, **kwargs):
+		cache_key = build_inventory_cache_key('alerts', request, user_scope=str(request.user.id))
+		cached_payload = cache.get(cache_key)
+		if cached_payload is not None:
+			return Response(cached_payload, status=status.HTTP_200_OK)
+
+		queryset = self.filter_queryset(self.get_queryset())
+		page = self.paginate_queryset(queryset)
+
+		if page is not None:
+			serializer = self.get_serializer(page, many=True)
+			payload = self.get_paginated_response(serializer.data).data
+		else:
+			serializer = self.get_serializer(queryset, many=True)
+			payload = serializer.data
+
+		cache.set(
+			cache_key,
+			payload,
+			timeout=getattr(settings, 'ALERTS_CACHE_TTL_SECONDS', 60),
+		)
+		return Response(payload, status=status.HTTP_200_OK)
 
 	def get_queryset(self):
 		queryset = Product.objects.select_related('category').filter(reorder_level__gt=0)

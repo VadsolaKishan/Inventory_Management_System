@@ -66,10 +66,10 @@ const authSlice = createSlice({
   initialState,
   reducers: {
     setCredentials: (state, action) => {
-      state.accessToken = action.payload.access
-      state.refreshToken = action.payload.refresh
+      state.accessToken = action.payload.access_token || action.payload.access || ''
+      state.refreshToken = action.payload.refresh_token || action.payload.refresh || ''
       state.user = normalizeUser(action.payload.user)
-      state.isAuthenticated = Boolean(action.payload.access && action.payload.refresh)
+      state.isAuthenticated = Boolean(state.accessToken && state.refreshToken)
       persistAuth(state)
     },
     syncTokens: (state, action) => {

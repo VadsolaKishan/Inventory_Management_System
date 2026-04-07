@@ -16,7 +16,7 @@ export default function LoginPage() {
   const navigate = useNavigate()
   const location = useLocation()
 
-  const [form, setForm] = useState({ username: '', password: '' })
+  const [form, setForm] = useState({ login: '', password: '' })
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
@@ -30,20 +30,26 @@ export default function LoginPage() {
     event.preventDefault()
     setError('')
 
-    if (!form.username || !form.password) {
-      setError('Username and password are required.')
+    const sanitizedLogin = form.login.trim()
+    if (!sanitizedLogin || !form.password) {
+      setError('Username/email and password are required.')
       return
     }
 
     setLoading(true)
     try {
-      const payload = await authService.login(form)
+      const payload = await authService.login({
+        login: sanitizedLogin,
+        password: form.password,
+      })
       dispatch(setCredentials(payload))
       toast.success(`Welcome back, ${payload.user?.username || 'User'}!`)
       const fallbackPath = payload.user?.role === ROLES.MANAGER ? '/dashboard' : '/receipts'
       navigate(redirectPath || fallbackPath, { replace: true })
     } catch (requestError) {
-      setError(extractErrorMessage(requestError, 'Unable to sign in.'))
+      const safeMessage = extractErrorMessage(requestError, 'Invalid username or password')
+      setError(safeMessage)
+      toast.error(safeMessage)
     } finally {
       setLoading(false)
     }
@@ -61,14 +67,14 @@ export default function LoginPage() {
         <p className="mt-2 text-sm text-muted">Access your inventory dashboard.</p>
       </div>
 
-      <form className="space-y-4" onSubmit={handleSubmit}>
+      <form className="space-y-4" onSubmit={handleSubmit} autoComplete="off">
         <InputField
-          id="username"
-          label="Username"
-          value={form.username}
-          onChange={updateField('username')}
-          placeholder="manager1"
-          autoComplete="username"
+          id="login"
+          label="Username or Email"
+          value={form.login}
+          onChange={updateField('login')}
+          placeholder="manager1 or name@company.com"
+          autoComplete="off"
         />
 
         <InputField
@@ -78,12 +84,12 @@ export default function LoginPage() {
           value={form.password}
           onChange={updateField('password')}
           placeholder="Enter your password"
-          autoComplete="current-password"
+          autoComplete="new-password"
         />
 
         {error && <p className="rounded-xl bg-red-50 px-3 py-2 text-sm font-medium text-red-700">{error}</p>}
 
-        <Button type="submit" className="w-full" loading={loading}>
+        <Button type="submit" className="w-full" loading={loading} disabled={loading}>
           Sign In
         </Button>
       </form>

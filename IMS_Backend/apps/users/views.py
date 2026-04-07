@@ -1,7 +1,8 @@
 import logging
 
 from django.conf import settings
-from django.contrib.auth import authenticate
+from django.contrib.auth.hashers import check_password, make_password
+from django.contrib.auth.models import update_last_login
 from django.core.mail import send_mail
 from rest_framework import mixins, status, viewsets
 from rest_framework.decorators import action
@@ -12,6 +13,14 @@ from rest_framework_simplejwt.tokens import RefreshToken
 
 from apps.users.models import PasswordResetOTP, User
 from apps.users.permissions import IsManagerOnly, IsManagerOrSuperUser, IsSuperUserOnly
+from apps.users.security import (
+	SAFE_LOGIN_ERROR_MESSAGE,
+	check_login_block,
+	clear_failed_logins,
+	get_client_ip,
+	normalize_login_identifier,
+	register_failed_login,
+)
 from apps.users.serializers import (
     CreateManagerSerializer,
     CreateStaffSerializer,
@@ -23,16 +32,39 @@ from apps.users.serializers import (
 )
 
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger('apps.users.auth')
+DUMMY_PASSWORD_HASH = make_password('ims-login-dummy-password')
 
 
 def build_token_response(user):
 	refresh = RefreshToken.for_user(user)
-	return {
-		'refresh': str(refresh),
-		'access': str(refresh.access_token),
-		'user': UserSerializer(user).data,
+	access = refresh.access_token
+	public_user = {
+		'username': user.username,
+		'role': user.role,
 	}
+	return {
+		'user': public_user,
+		'access_token': str(access),
+		'refresh_token': str(refresh),
+		# Backward-compatible token keys for existing clients.
+		'access': str(access),
+		'refresh': str(refresh),
+	}
+
+
+def find_user_by_login(login_identifier):
+	user = User.objects.filter(email__iexact=login_identifier).first()
+	if user:
+		return user
+	return User.objects.filter(username__iexact=login_identifier).first()
+
+
+def verify_password_constant_time(user, raw_password):
+	if not user:
+		check_password(raw_password, DUMMY_PASSWORD_HASH)
+		return False
+	return user.check_password(raw_password)
 
 
 def send_password_reset_otp_email(user, otp):
@@ -82,14 +114,62 @@ class AuthViewSet(viewsets.GenericViewSet):
 	def login(self, request):
 		serializer = LoginSerializer(data=request.data)
 		serializer.is_valid(raise_exception=True)
-		user = authenticate(
-			username=serializer.validated_data['username'],
-			password=serializer.validated_data['password'],
+		login_identifier = serializer.validated_data['login']
+		password = serializer.validated_data['password']
+		client_ip = get_client_ip(request)
+		normalized_identifier = normalize_login_identifier(login_identifier)
+
+		is_blocked, retry_after = check_login_block(normalized_identifier, client_ip)
+		if is_blocked:
+			logger.warning(
+				'Blocked login attempt identifier=%s ip=%s retry_after_seconds=%s',
+				normalized_identifier,
+				client_ip,
+				retry_after,
+			)
+			return Response(
+				{
+					'detail': f'Too many login attempts. Please try again later. Expected available in {retry_after} seconds.',
+					'retry_after_seconds': retry_after,
+				},
+				status=status.HTTP_429_TOO_MANY_REQUESTS,
+			)
+
+		user = find_user_by_login(login_identifier)
+		password_valid = verify_password_constant_time(user, password)
+		if not user or not password_valid or not user.is_active:
+			newly_blocked, new_retry_after = register_failed_login(normalized_identifier, client_ip)
+			logger.warning(
+				'Failed login attempt identifier=%s ip=%s blocked=%s retry_after_seconds=%s user_id=%s active=%s',
+				normalized_identifier,
+				client_ip,
+				newly_blocked,
+				new_retry_after,
+				getattr(user, 'id', None),
+				getattr(user, 'is_active', None),
+			)
+			if newly_blocked:
+				return Response(
+					{
+						'detail': (
+							f'Too many login attempts. Please try again later. '
+							f'Expected available in {new_retry_after} seconds.'
+						),
+						'retry_after_seconds': new_retry_after,
+					},
+					status=status.HTTP_429_TOO_MANY_REQUESTS,
+				)
+			raise AuthenticationFailed(SAFE_LOGIN_ERROR_MESSAGE)
+
+		clear_failed_logins(normalized_identifier, client_ip)
+		update_last_login(None, user)
+		logger.info(
+			'Successful login user_id=%s username=%s role=%s ip=%s',
+			user.id,
+			user.username,
+			user.role,
+			client_ip,
 		)
-		if not user:
-			raise AuthenticationFailed('Invalid username or password.')
-		if not user.is_active:
-			raise AuthenticationFailed('User account is inactive.')
 		return Response(build_token_response(user), status=status.HTTP_200_OK)
 
 	@action(

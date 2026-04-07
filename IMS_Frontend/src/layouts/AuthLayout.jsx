@@ -1,4 +1,4 @@
-import { Outlet } from 'react-router-dom'
+import { Outlet, useLocation } from 'react-router-dom'
 import { motion as Motion } from 'framer-motion'
 import { FiBox, FiShield, FiTrendingUp } from 'react-icons/fi'
 
@@ -21,9 +21,20 @@ const highlights = [
 ]
 
 export default function AuthLayout() {
+  const location = useLocation()
+  const isRegisterPage = /^\/register\/?$/.test(location.pathname)
+
   return (
-    <div className="grid min-h-screen lg:grid-cols-[1.1fr_0.9fr]">
-      <aside className="animated-grid hidden border-r border-border/70 bg-white/60 p-10 lg:block">
+    <div
+      className={`grid lg:grid-cols-[1.1fr_0.9fr] ${
+        isRegisterPage ? 'h-screen overflow-hidden' : 'min-h-screen'
+      }`}
+    >
+      <aside
+        className={`animated-grid hidden border-r border-border/70 bg-white/60 p-10 lg:block ${
+          isRegisterPage ? 'h-screen' : ''
+        }`}
+      >
         <Motion.div
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
@@ -68,7 +79,11 @@ export default function AuthLayout() {
         </Motion.div>
       </aside>
 
-      <main className="flex items-center justify-center p-4 sm:p-8">
+      <main
+        className={`flex justify-center p-4 sm:p-8 ${
+          isRegisterPage ? 'h-screen items-start overflow-y-auto' : 'items-center'
+        }`}
+      >
         <div className="w-full max-w-md">
           <Outlet />
         </div>

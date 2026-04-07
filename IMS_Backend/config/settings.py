@@ -1,4 +1,5 @@
 import os
+import sys
 from datetime import timedelta
 from pathlib import Path
 from urllib.parse import parse_qs, unquote, urlparse
@@ -99,6 +100,7 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    'config.middleware.APIPerformanceLoggingMiddleware',
 ]
 
 ROOT_URLCONF = 'config.urls'
@@ -156,6 +158,12 @@ AUTH_PASSWORD_VALIDATORS = [
     },
     {
         'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator',
+        'OPTIONS': {
+            'min_length': 8,
+        },
+    },
+    {
+        'NAME': 'apps.users.validators.StrongPasswordRegexValidator',
     },
     {
         'NAME': 'django.contrib.auth.password_validation.CommonPasswordValidator',
@@ -191,17 +199,30 @@ if render_external_hostname:
         CSRF_TRUSTED_ORIGINS.append(render_origin)
 
 SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
-USE_X_FORWARDED_HOST = to_bool(os.getenv("USE_X_FORWARDED_HOST"), default=not DEBUG)
-SECURE_SSL_REDIRECT = to_bool(os.getenv("SECURE_SSL_REDIRECT"), default=not DEBUG)
-SESSION_COOKIE_SECURE = to_bool(os.getenv("SESSION_COOKIE_SECURE"), default=not DEBUG)
-CSRF_COOKIE_SECURE = to_bool(os.getenv("CSRF_COOKIE_SECURE"), default=not DEBUG)
-SECURE_HSTS_SECONDS = int(os.getenv("SECURE_HSTS_SECONDS", "31536000" if not DEBUG else "0"))
+IS_DJANGO_RUNSERVER = 'runserver' in sys.argv
+DEFAULT_SECURE_RUNTIME = not DEBUG and not IS_DJANGO_RUNSERVER
+
+USE_X_FORWARDED_HOST = to_bool(os.getenv("USE_X_FORWARDED_HOST"), default=DEFAULT_SECURE_RUNTIME)
+SECURE_SSL_REDIRECT = to_bool(os.getenv("SECURE_SSL_REDIRECT"), default=DEFAULT_SECURE_RUNTIME)
+SESSION_COOKIE_SECURE = to_bool(os.getenv("SESSION_COOKIE_SECURE"), default=DEFAULT_SECURE_RUNTIME)
+CSRF_COOKIE_SECURE = to_bool(os.getenv("CSRF_COOKIE_SECURE"), default=DEFAULT_SECURE_RUNTIME)
+SECURE_HSTS_SECONDS = int(
+    os.getenv("SECURE_HSTS_SECONDS", "31536000" if DEFAULT_SECURE_RUNTIME else "0")
+)
 SECURE_HSTS_INCLUDE_SUBDOMAINS = to_bool(
     os.getenv("SECURE_HSTS_INCLUDE_SUBDOMAINS"),
-    default=not DEBUG,
+    default=DEFAULT_SECURE_RUNTIME,
 )
-SECURE_HSTS_PRELOAD = to_bool(os.getenv("SECURE_HSTS_PRELOAD"), default=not DEBUG)
+SECURE_HSTS_PRELOAD = to_bool(os.getenv("SECURE_HSTS_PRELOAD"), default=DEFAULT_SECURE_RUNTIME)
 SECURE_CONTENT_TYPE_NOSNIFF = to_bool(os.getenv("SECURE_CONTENT_TYPE_NOSNIFF"), default=True)
+
+if IS_DJANGO_RUNSERVER:
+    SECURE_SSL_REDIRECT = False
+    SESSION_COOKIE_SECURE = False
+    CSRF_COOKIE_SECURE = False
+    SECURE_HSTS_SECONDS = 0
+    SECURE_HSTS_INCLUDE_SUBDOMAINS = False
+    SECURE_HSTS_PRELOAD = False
 
 CORS_ALLOWED_ORIGINS = to_list(
     os.getenv("CORS_ALLOWED_ORIGINS"),
@@ -215,6 +236,31 @@ CORS_ALLOWED_ORIGINS = to_list(
 
 CORS_ALLOW_CREDENTIALS = True
 
+CACHE_BACKEND = os.getenv('CACHE_BACKEND', 'locmem').strip().lower()
+REDIS_CACHE_URL = normalize_env_value(os.getenv('REDIS_CACHE_URL'))
+
+if CACHE_BACKEND == 'redis' and REDIS_CACHE_URL:
+    CACHES = {
+        'default': {
+            'BACKEND': 'django.core.cache.backends.redis.RedisCache',
+            'LOCATION': REDIS_CACHE_URL,
+            'TIMEOUT': int(os.getenv('CACHE_DEFAULT_TIMEOUT_SECONDS', '300')),
+            'KEY_PREFIX': os.getenv('CACHE_KEY_PREFIX', 'ims'),
+        }
+    }
+else:
+    CACHES = {
+        'default': {
+            'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
+            'LOCATION': 'ims-local-cache',
+            'TIMEOUT': int(os.getenv('CACHE_DEFAULT_TIMEOUT_SECONDS', '300')),
+        }
+    }
+
+DASHBOARD_CACHE_TTL_SECONDS = int(os.getenv('DASHBOARD_CACHE_TTL_SECONDS', '60'))
+ALERTS_CACHE_TTL_SECONDS = int(os.getenv('ALERTS_CACHE_TTL_SECONDS', '60'))
+API_SLOW_REQUEST_THRESHOLD_MS = int(os.getenv('API_SLOW_REQUEST_THRESHOLD_MS', '500'))
+
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (
         'rest_framework_simplejwt.authentication.JWTAuthentication',
@@ -227,19 +273,23 @@ REST_FRAMEWORK = {
         'rest_framework.filters.SearchFilter',
         'rest_framework.filters.OrderingFilter',
     ),
-    'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
+    'DEFAULT_PAGINATION_CLASS': 'config.pagination.StandardResultsSetPagination',
     'PAGE_SIZE': int(os.getenv("PAGE_SIZE", "20")),
     # Prevent ?format=pdf/xlsx from being interpreted as renderer suffix.
     'URL_FORMAT_OVERRIDE': None,
 }
 
 SIMPLE_JWT = {
-    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=int(os.getenv("JWT_ACCESS_MINUTES", "30"))),
+    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=int(os.getenv("JWT_ACCESS_MINUTES", "20"))),
     'REFRESH_TOKEN_LIFETIME': timedelta(days=int(os.getenv("JWT_REFRESH_DAYS", "1"))),
     'ROTATE_REFRESH_TOKENS': True,
     'BLACKLIST_AFTER_ROTATION': True,
     'UPDATE_LAST_LOGIN': True,
 }
+
+LOGIN_MAX_ATTEMPTS = int(os.getenv("LOGIN_MAX_ATTEMPTS", "5"))
+LOGIN_ATTEMPT_WINDOW_SECONDS = int(os.getenv("LOGIN_ATTEMPT_WINDOW_SECONDS", "900"))
+LOGIN_LOCKOUT_SECONDS = int(os.getenv("LOGIN_LOCKOUT_SECONDS", "100"))
 
 EMAIL_BACKEND = os.getenv("EMAIL_BACKEND", "django.core.mail.backends.smtp.EmailBackend")
 EMAIL_HOST = os.getenv("EMAIL_HOST", "smtp.gmail.com")
@@ -264,3 +314,31 @@ OTP_REQUIRE_REAL_EMAIL_DELIVERY = to_bool(
 )
 
 PASSWORD_RESET_OTP_EXPIRY_MINUTES = int(os.getenv("PASSWORD_RESET_OTP_EXPIRY_MINUTES", "10"))
+
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'formatters': {
+        'standard': {
+            'format': '%(asctime)s %(levelname)s [%(name)s] %(message)s',
+        },
+    },
+    'handlers': {
+        'console': {
+            'class': 'logging.StreamHandler',
+            'formatter': 'standard',
+        },
+    },
+    'loggers': {
+        'apps.users.auth': {
+            'handlers': ['console'],
+            'level': os.getenv('AUTH_LOG_LEVEL', 'INFO'),
+            'propagate': False,
+        },
+        'apps.performance.api': {
+            'handlers': ['console'],
+            'level': os.getenv('PERF_LOG_LEVEL', 'WARNING'),
+            'propagate': False,
+        },
+    },
+}

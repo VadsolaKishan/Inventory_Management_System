@@ -8,6 +8,7 @@ import SelectField from '../components/common/SelectField'
 import { CardSkeleton } from '../components/common/LoadingSkeleton'
 import DocumentChart from '../components/dashboard/DocumentChart'
 import StatCard from '../components/dashboard/StatCard'
+import useDebounce from '../hooks/useDebounce'
 import { getResults, imsService } from '../services/imsService'
 import {
   DASHBOARD_ALL_STATUS_OPTIONS,
@@ -24,23 +25,37 @@ const initialFilters = {
   category: '',
 }
 
+let dashboardLookupsCache = null
+
 export default function DashboardPage() {
   const [filters, setFilters] = useState(initialFilters)
+  const debouncedFilters = useDebounce(filters, 250)
   const [dashboard, setDashboard] = useState(null)
   const [warehouses, setWarehouses] = useState([])
   const [categories, setCategories] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
+  const dashboardParams = useMemo(
+    () =>
+      Object.fromEntries(
+        Object.entries(debouncedFilters).filter(([, value]) => value !== '' && value !== null),
+      ),
+    [debouncedFilters],
+  )
+
   useEffect(() => {
     let isMounted = true
 
-    const loadData = async () => {
-      setLoading(true)
-      setError('')
+    const loadLookups = async () => {
+      if (dashboardLookupsCache) {
+        setWarehouses(dashboardLookupsCache.warehouses)
+        setCategories(dashboardLookupsCache.categories)
+        return
+      }
+
       try {
-        const [dashboardPayload, warehousePayload, categoryPayload] = await Promise.all([
-          imsService.getDashboard(filters),
+        const [warehousePayload, categoryPayload] = await Promise.all([
           imsService.listWarehouses({ page: 1, page_size: PAGE_SIZE }),
           imsService.listCategories({ page: 1, page_size: PAGE_SIZE }),
         ])
@@ -49,9 +64,45 @@ export default function DashboardPage() {
           return
         }
 
+        const nextWarehouses = getResults(warehousePayload)
+        const nextCategories = getResults(categoryPayload)
+
+        dashboardLookupsCache = {
+          warehouses: nextWarehouses,
+          categories: nextCategories,
+        }
+
+        setWarehouses(nextWarehouses)
+        setCategories(nextCategories)
+      } catch (requestError) {
+        if (isMounted) {
+          setError(extractErrorMessage(requestError, 'Unable to load dashboard filter options.'))
+        }
+      }
+    }
+
+    loadLookups()
+
+    return () => {
+      isMounted = false
+    }
+  }, [])
+
+  useEffect(() => {
+    let isMounted = true
+
+    const loadDashboard = async () => {
+      setLoading(true)
+      setError('')
+
+      try {
+        const dashboardPayload = await imsService.getDashboard(dashboardParams)
+
+        if (!isMounted) {
+          return
+        }
+
         setDashboard(dashboardPayload)
-        setWarehouses(getResults(warehousePayload))
-        setCategories(getResults(categoryPayload))
       } catch (requestError) {
         if (isMounted) {
           setError(extractErrorMessage(requestError, 'Unable to load dashboard data.'))
@@ -63,12 +114,12 @@ export default function DashboardPage() {
       }
     }
 
-    loadData()
+    loadDashboard()
 
     return () => {
       isMounted = false
     }
-  }, [filters])
+  }, [dashboardParams])
 
   const warehouseOptions = useMemo(
     () => warehouses.map((item) => ({ value: item.id, label: `${item.name} (${item.code})` })),

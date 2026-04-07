@@ -16,7 +16,7 @@ class Category(models.Model):
 
 
 class Product(models.Model):
-	name = models.CharField(max_length=200)
+	name = models.CharField(max_length=200, db_index=True)
 	sku = models.CharField(max_length=60, unique=True)
 	category = models.ForeignKey(
 		Category,
@@ -24,8 +24,8 @@ class Product(models.Model):
 		related_name='products',
 	)
 	unit_of_measure = models.CharField(max_length=30)
-	current_stock = models.PositiveIntegerField(default=0)
-	reorder_level = models.PositiveIntegerField(default=0)
+	current_stock = models.PositiveIntegerField(default=0, db_index=True)
+	reorder_level = models.PositiveIntegerField(default=0, db_index=True)
 	created_at = models.DateTimeField(auto_now_add=True)
 	updated_at = models.DateTimeField(auto_now=True)
 

@@ -24,13 +24,7 @@ class IsSuperUserOnly(BasePermission):
 
 class IsManagerOnly(BasePermission):
     def has_permission(self, request, view):
-        user = request.user
-        return bool(
-            user
-            and user.is_authenticated
-            and not user.is_superuser
-            and user.role == User.Roles.MANAGER
-        )
+        return is_manager(request.user, allow_superuser=True)
 
 
 class IsManagerOrSuperUser(BasePermission):

@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useState } from 'react'
-import { FiPlus, FiUserPlus } from 'react-icons/fi'
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import { FiEye, FiEyeOff, FiPlus, FiUserPlus } from 'react-icons/fi'
 import toast from 'react-hot-toast'
 
 import Button from '../../components/common/Button'
@@ -10,11 +10,13 @@ import { TableSkeleton } from '../../components/common/LoadingSkeleton'
 import Modal from '../../components/common/Modal'
 import PageMotion from '../../components/common/PageMotion'
 import PaginationControls from '../../components/common/PaginationControls'
+import PasswordPolicyPanel from '../../components/forms/PasswordPolicyPanel'
 import SelectField from '../../components/common/SelectField'
 import { getCount, getResults, imsService } from '../../services/imsService'
 import { PAGE_SIZE, ROLE_LABELS } from '../../utils/constants'
 import { formatDateTime } from '../../utils/format'
 import { extractErrorMessage } from '../../utils/http'
+import { getPasswordRuleState, getPasswordStrength, isPasswordPolicyCompliant } from '../../utils/password'
 
 const initialStaffForm = {
   username: '',
@@ -38,6 +40,11 @@ export default function UserManagementPage() {
   const [form, setForm] = useState(initialStaffForm)
   const [formError, setFormError] = useState('')
   const [submitting, setSubmitting] = useState(false)
+  const [showPassword, setShowPassword] = useState(false)
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false)
+
+  const passwordRules = useMemo(() => getPasswordRuleState(form.password), [form.password])
+  const passwordStrength = useMemo(() => getPasswordStrength(form.password), [form.password])
 
   const loadUsers = useCallback(async () => {
     setLoading(true)
@@ -66,6 +73,8 @@ export default function UserManagementPage() {
     setIsCreateModalOpen(false)
     setForm(initialStaffForm)
     setFormError('')
+    setShowPassword(false)
+    setShowConfirmPassword(false)
   }
 
   const submitCreateStaff = async (event) => {
@@ -77,8 +86,10 @@ export default function UserManagementPage() {
       return
     }
 
-    if (form.password.length < 8) {
-      setFormError('Password must be at least 8 characters.')
+    if (!isPasswordPolicyCompliant(form.password)) {
+      setFormError(
+        'Password must be 8-20 characters and include uppercase, lowercase, number, and special character.',
+      )
       return
     }
 
@@ -222,26 +233,67 @@ export default function UserManagementPage() {
           </div>
 
           <div className="grid gap-4 md:grid-cols-2">
-            <InputField
-              id="staff-password"
-              label="Password"
-              type="password"
-              value={form.password}
-              onChange={(event) => setForm((prev) => ({ ...prev, password: event.target.value }))}
-            />
-            <InputField
-              id="staff-confirm-password"
-              label="Confirm Password"
-              type="password"
-              value={form.confirm_password}
-              onChange={(event) =>
-                setForm((prev) => ({
-                  ...prev,
-                  confirm_password: event.target.value,
-                }))
-              }
-            />
+            <label className="flex flex-col gap-1.5 text-sm" htmlFor="staff-password">
+              <span className="font-semibold text-ink">Password</span>
+              <div className="relative">
+                <input
+                  id="staff-password"
+                  type={showPassword ? 'text' : 'password'}
+                  value={form.password}
+                  onChange={(event) => setForm((prev) => ({ ...prev, password: event.target.value }))}
+                  className="w-full rounded-xl border border-border bg-white px-3.5 py-2.5 pr-11 text-sm text-ink placeholder:text-muted/80 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-100"
+                  autoComplete="new-password"
+                  maxLength={20}
+                />
+                {form.password && (
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword((value) => !value)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted hover:text-ink"
+                    aria-label={showPassword ? 'Hide password' : 'Show password'}
+                  >
+                    {showPassword ? <FiEyeOff /> : <FiEye />}
+                  </button>
+                )}
+              </div>
+            </label>
+
+            <label className="flex flex-col gap-1.5 text-sm" htmlFor="staff-confirm-password">
+              <span className="font-semibold text-ink">Confirm Password</span>
+              <div className="relative">
+                <input
+                  id="staff-confirm-password"
+                  type={showConfirmPassword ? 'text' : 'password'}
+                  value={form.confirm_password}
+                  onChange={(event) =>
+                    setForm((prev) => ({
+                      ...prev,
+                      confirm_password: event.target.value,
+                    }))
+                  }
+                  className="w-full rounded-xl border border-border bg-white px-3.5 py-2.5 pr-11 text-sm text-ink placeholder:text-muted/80 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-100"
+                  autoComplete="new-password"
+                  maxLength={20}
+                />
+                {form.confirm_password && (
+                  <button
+                    type="button"
+                    onClick={() => setShowConfirmPassword((value) => !value)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted hover:text-ink"
+                    aria-label={showConfirmPassword ? 'Hide confirm password' : 'Show confirm password'}
+                  >
+                    {showConfirmPassword ? <FiEyeOff /> : <FiEye />}
+                  </button>
+                )}
+              </div>
+            </label>
           </div>
+
+          <PasswordPolicyPanel
+            passwordValue={form.password}
+            passwordRules={passwordRules}
+            passwordStrength={passwordStrength}
+          />
 
           <SelectField
             id="staff-status"

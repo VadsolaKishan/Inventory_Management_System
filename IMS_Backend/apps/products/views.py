@@ -3,6 +3,7 @@ from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
+from apps.inventory.cache_utils import bump_inventory_cache_version
 from apps.inventory.models import StockBalance
 from apps.products.models import Category, Product
 from apps.products.serializers import (
@@ -28,6 +29,18 @@ class ProductViewSet(viewsets.ModelViewSet):
 	filterset_fields = ['category']
 	search_fields = ['name', 'sku', 'category__name']
 	ordering_fields = ['name', 'sku', 'current_stock', 'created_at']
+
+	def perform_create(self, serializer):
+		serializer.save()
+		bump_inventory_cache_version()
+
+	def perform_update(self, serializer):
+		serializer.save()
+		bump_inventory_cache_version()
+
+	def perform_destroy(self, instance):
+		instance.delete()
+		bump_inventory_cache_version()
 
 	@action(detail=True, methods=['get'], url_path='stock-per-location')
 	def stock_per_location(self, request, pk=None):

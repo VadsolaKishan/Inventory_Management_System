@@ -2,10 +2,10 @@ from django.db import models
 
 
 class Warehouse(models.Model):
-	name = models.CharField(max_length=120)
+	name = models.CharField(max_length=120, db_index=True)
 	code = models.CharField(max_length=30, unique=True)
 	address = models.TextField(blank=True)
-	is_active = models.BooleanField(default=True)
+	is_active = models.BooleanField(default=True, db_index=True)
 	created_at = models.DateTimeField(auto_now_add=True)
 	updated_at = models.DateTimeField(auto_now=True)
 
@@ -23,9 +23,9 @@ class Location(models.Model):
 		on_delete=models.CASCADE,
 		related_name='locations',
 	)
-	name = models.CharField(max_length=120)
-	code = models.CharField(max_length=30)
-	is_active = models.BooleanField(default=True)
+	name = models.CharField(max_length=120, db_index=True)
+	code = models.CharField(max_length=30, db_index=True)
+	is_active = models.BooleanField(default=True, db_index=True)
 	created_at = models.DateTimeField(auto_now_add=True)
 	updated_at = models.DateTimeField(auto_now=True)
 
