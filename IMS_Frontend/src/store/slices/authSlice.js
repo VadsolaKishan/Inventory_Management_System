@@ -24,7 +24,7 @@ function normalizeUser(user) {
 
 function readStoredAuth() {
   try {
-    const rawValue = localStorage.getItem(AUTH_STORAGE_KEY)
+    const rawValue = sessionStorage.getItem(AUTH_STORAGE_KEY)
     if (!rawValue) {
       return null
     }
@@ -45,11 +45,11 @@ function persistAuth(state) {
     user: state.user,
     isAuthenticated: state.isAuthenticated,
   }
-  localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(payload))
+  sessionStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(payload))
 }
 
 function clearStoredAuth() {
-  localStorage.removeItem(AUTH_STORAGE_KEY)
+  sessionStorage.removeItem(AUTH_STORAGE_KEY)
 }
 
 const storedAuth = readStoredAuth()

@@ -11,7 +11,7 @@ const api = axios.create({
 
 function readStoredAuth() {
   try {
-    const rawValue = localStorage.getItem(AUTH_STORAGE_KEY)
+    const rawValue = sessionStorage.getItem(AUTH_STORAGE_KEY)
     return rawValue ? JSON.parse(rawValue) : null
   } catch {
     return null
@@ -19,7 +19,7 @@ function readStoredAuth() {
 }
 
 function writeStoredAuth(payload) {
-  localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(payload))
+  sessionStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(payload))
 }
 
 let isRefreshing = false
