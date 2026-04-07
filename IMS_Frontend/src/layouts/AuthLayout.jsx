@@ -23,16 +23,21 @@ const highlights = [
 export default function AuthLayout() {
   const location = useLocation()
   const isRegisterPage = /^\/register\/?$/.test(location.pathname)
+  const isResetPasswordPage = /^\/reset-password\/?$/.test(location.pathname)
+  const isForgotPasswordPage = /^\/forgot-password\/?$/.test(location.pathname)
+  const isForgotPasswordConfirmStep = isForgotPasswordPage
+    && new URLSearchParams(location.search).get('step') === 'confirm'
+  const isScrollableAuthPage = isRegisterPage || isResetPasswordPage || isForgotPasswordConfirmStep
 
   return (
     <div
       className={`grid lg:grid-cols-[1.1fr_0.9fr] ${
-        isRegisterPage ? 'h-screen overflow-hidden' : 'min-h-screen'
+        isScrollableAuthPage ? 'h-screen overflow-hidden' : 'min-h-screen'
       }`}
     >
       <aside
         className={`animated-grid hidden border-r border-border/70 bg-white/60 p-10 lg:block ${
-          isRegisterPage ? 'h-screen' : ''
+          isScrollableAuthPage ? 'h-screen' : ''
         }`}
       >
         <Motion.div
@@ -81,10 +86,12 @@ export default function AuthLayout() {
 
       <main
         className={`flex justify-center p-4 sm:p-8 ${
-          isRegisterPage ? 'h-screen items-start overflow-y-auto' : 'items-center'
+          isScrollableAuthPage
+            ? 'h-screen items-start overflow-y-auto'
+            : 'items-center'
         }`}
       >
-        <div className="w-full max-w-md">
+        <div className={`w-full max-w-md ${isForgotPasswordConfirmStep ? 'pt-2 sm:pt-4' : ''}`}>
           <Outlet />
         </div>
       </main>

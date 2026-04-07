@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { motion as Motion } from 'framer-motion'
 import toast from 'react-hot-toast'
 import { FiEye, FiEyeOff } from 'react-icons/fi'
@@ -13,8 +13,8 @@ import { getPasswordRuleState, getPasswordStrength, isPasswordPolicyCompliant } 
 
 export default function ForgotPasswordPage() {
   const navigate = useNavigate()
+  const [searchParams, setSearchParams] = useSearchParams()
 
-  const [step, setStep] = useState('request')
   const [email, setEmail] = useState('')
   const [otpCode, setOtpCode] = useState('')
   const [newPassword, setNewPassword] = useState('')
@@ -24,6 +24,7 @@ export default function ForgotPasswordPage() {
 
   const passwordRules = useMemo(() => getPasswordRuleState(newPassword), [newPassword])
   const passwordStrength = useMemo(() => getPasswordStrength(newPassword), [newPassword])
+  const step = searchParams.get('step') === 'confirm' ? 'confirm' : 'request'
 
   const requestOtp = async (event) => {
     event.preventDefault()
@@ -37,9 +38,15 @@ export default function ForgotPasswordPage() {
     setLoading(true)
     try {
       const payload = await authService.requestPasswordOtp({ email })
-      setStep('confirm')
+      setSearchParams({ step: 'confirm' }, { replace: true })
       toast.success(payload.detail || 'If the account exists, an OTP has been sent to your email.')
     } catch (requestError) {
+      const isTimeout = requestError?.code === 'ECONNABORTED'
+        || /timeout/i.test(String(requestError?.message || ''))
+      if (isTimeout) {
+        setError('Request is taking longer than expected. Please try again in a few seconds.')
+        return
+      }
       setError(extractErrorMessage(requestError, 'Unable to request OTP.'))
     } finally {
       setLoading(false)

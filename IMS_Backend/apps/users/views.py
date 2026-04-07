@@ -72,6 +72,14 @@ def send_password_reset_otp_email(user, otp):
 	if require_real_delivery and getattr(settings, 'EMAIL_BACKEND', '') == 'django.core.mail.backends.console.EmailBackend':
 		raise RuntimeError('Email backend is set to console backend, so OTP emails are not deliverable.')
 
+	email_backend = getattr(settings, 'EMAIL_BACKEND', '')
+	is_smtp_backend = email_backend == 'django.core.mail.backends.smtp.EmailBackend'
+	if require_real_delivery and is_smtp_backend:
+		email_user = str(getattr(settings, 'EMAIL_HOST_USER', '') or '').strip()
+		email_password = str(getattr(settings, 'EMAIL_HOST_PASSWORD', '') or '').strip()
+		if not email_user or not email_password:
+			raise RuntimeError('SMTP credentials are missing. Configure EMAIL_HOST_USER and EMAIL_HOST_PASSWORD.')
+
 	expiry_minutes = getattr(settings, 'PASSWORD_RESET_OTP_EXPIRY_MINUTES', 10)
 	subject = getattr(
 		settings,
