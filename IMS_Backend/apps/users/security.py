@@ -19,9 +19,9 @@ def normalize_login_identifier(value):
 
 
 def _get_limits():
-    max_attempts = max(1, int(getattr(settings, 'LOGIN_MAX_ATTEMPTS', 5)))
-    attempt_window = max(60, int(getattr(settings, 'LOGIN_ATTEMPT_WINDOW_SECONDS', 900)))
-    lockout_window = max(60, int(getattr(settings, 'LOGIN_LOCKOUT_SECONDS', 900)))
+    max_attempts = max(1, int(getattr(settings, 'LOGIN_MAX_ATTEMPTS', 3)))
+    attempt_window = max(60, int(getattr(settings, 'LOGIN_ATTEMPT_WINDOW_SECONDS', 500)))
+    lockout_window = max(60, int(getattr(settings, 'LOGIN_LOCKOUT_SECONDS', 500)))
     return max_attempts, attempt_window, lockout_window
 
 
