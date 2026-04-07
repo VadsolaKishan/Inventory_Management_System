@@ -27,8 +27,8 @@ def _get_limits():
 
 def _make_cache_key(identifier, ip_address):
     normalized_identifier = normalize_login_identifier(identifier)
-    normalized_ip = (ip_address or 'unknown').strip().lower()
-    digest = hashlib.sha256(f'{normalized_identifier}|{normalized_ip}'.encode('utf-8')).hexdigest()
+    # Account lockout is intentionally identifier-based to ensure consistent blocking.
+    digest = hashlib.sha256(normalized_identifier.encode('utf-8')).hexdigest()
     return f'auth:login-attempts:{digest}'
 
 

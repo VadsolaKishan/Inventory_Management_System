@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useDispatch } from 'react-redux'
 import { motion as Motion } from 'framer-motion'
@@ -19,6 +19,8 @@ export default function LoginPage() {
   const [form, setForm] = useState({ login: '', password: '' })
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [blockedUntilMs, setBlockedUntilMs] = useState(0)
+  const [nowMs, setNowMs] = useState(() => Date.now())
 
   const redirectPath = location.state?.from?.pathname
 
@@ -26,9 +28,31 @@ export default function LoginPage() {
     setForm((prev) => ({ ...prev, [field]: event.target.value }))
   }
 
+  const secondsUntilUnblock = Math.max(0, Math.ceil((blockedUntilMs - nowMs) / 1000))
+  const isTemporarilyBlocked = secondsUntilUnblock > 0
+
+  useEffect(() => {
+    if (!isTemporarilyBlocked) {
+      return undefined
+    }
+
+    const intervalId = window.setInterval(() => {
+      setNowMs(Date.now())
+    }, 1000)
+
+    return () => {
+      window.clearInterval(intervalId)
+    }
+  }, [isTemporarilyBlocked])
+
   const handleSubmit = async (event) => {
     event.preventDefault()
     setError('')
+
+    if (isTemporarilyBlocked) {
+      setError(`Too many login attempts. Please try again in ${secondsUntilUnblock} seconds.`)
+      return
+    }
 
     const sanitizedLogin = form.login.trim()
     if (!sanitizedLogin || !form.password) {
@@ -42,11 +66,20 @@ export default function LoginPage() {
         login: sanitizedLogin,
         password: form.password,
       })
+      setBlockedUntilMs(0)
       dispatch(setCredentials(payload))
       toast.success(`Welcome back, ${payload.user?.username || 'User'}!`)
       const fallbackPath = payload.user?.role === ROLES.MANAGER ? '/dashboard' : '/receipts'
       navigate(redirectPath || fallbackPath, { replace: true })
     } catch (requestError) {
+      const retryAfterSeconds = Number(requestError?.response?.data?.retry_after_seconds || 0)
+      if (requestError?.response?.status === 429 && retryAfterSeconds > 0) {
+        setBlockedUntilMs(Date.now() + retryAfterSeconds * 1000)
+        const lockMessage = 'Too many login attempts. Please try again later.'
+        setError(lockMessage)
+        toast.error(lockMessage)
+        return
+      }
       const safeMessage = extractErrorMessage(requestError, 'Invalid username or password')
       setError(safeMessage)
       toast.error(safeMessage)
@@ -89,8 +122,13 @@ export default function LoginPage() {
 
         {error && <p className="rounded-xl bg-red-50 px-3 py-2 text-sm font-medium text-red-700">{error}</p>}
 
-        <Button type="submit" className="w-full" loading={loading} disabled={loading}>
-          Sign In
+        <Button
+          type="submit"
+          className="w-full"
+          loading={loading}
+          disabled={loading || isTemporarilyBlocked}
+        >
+          {isTemporarilyBlocked ? `Try again in ${secondsUntilUnblock}s` : 'Sign In'}
         </Button>
       </form>
 
