@@ -1,8 +1,11 @@
 import hashlib
+from datetime import timedelta
 
 from django.conf import settings
-from django.core.cache import cache
+from django.db import transaction
 from django.utils import timezone
+
+from apps.users.models import LoginLockoutState
 
 SAFE_LOGIN_ERROR_MESSAGE = 'Invalid username or password'
 
@@ -28,70 +31,73 @@ def _get_limits():
 def _make_cache_key(identifier, ip_address):
     normalized_identifier = normalize_login_identifier(identifier)
     # Account lockout is intentionally identifier-based to ensure consistent blocking.
-    digest = hashlib.sha256(normalized_identifier.encode('utf-8')).hexdigest()
-    return f'auth:login-attempts:{digest}'
+    return hashlib.sha256(normalized_identifier.encode('utf-8')).hexdigest()
 
 
-def _now_ts():
-    return int(timezone.now().timestamp())
+def _seconds_until(future_time, now_time):
+    return max(1, int((future_time - now_time).total_seconds()))
 
 
 def check_login_block(identifier, ip_address):
     _, _, lockout_window = _get_limits()
     key = _make_cache_key(identifier, ip_address)
-    now_ts = _now_ts()
-    record = cache.get(key)
+    now_time = timezone.now()
+    record = LoginLockoutState.objects.filter(identifier_hash=key).first()
 
     if not record:
         return False, 0
 
-    lock_until = int(record.get('lock_until', 0) or 0)
-    if lock_until <= now_ts:
+    lock_until = record.lock_until
+    if not lock_until or lock_until <= now_time:
         return False, 0
 
     # If limits were reduced, cap any previously stored longer lockout.
-    max_allowed_lock_until = now_ts + lockout_window
+    max_allowed_lock_until = now_time + timedelta(seconds=lockout_window)
     if lock_until > max_allowed_lock_until:
         lock_until = max_allowed_lock_until
-        record['lock_until'] = lock_until
+        record.lock_until = lock_until
+        record.save(update_fields=['lock_until', 'updated_at'])
 
-    retry_after = max(1, lock_until - now_ts)
-    cache.set(key, record, timeout=max(retry_after, lockout_window))
+    retry_after = _seconds_until(lock_until, now_time)
     return True, retry_after
 
 
 def register_failed_login(identifier, ip_address):
     max_attempts, attempt_window, lockout_window = _get_limits()
     key = _make_cache_key(identifier, ip_address)
-    now_ts = _now_ts()
+    now_time = timezone.now()
 
-    record = cache.get(key) or {'count': 0, 'first_failure': now_ts, 'lock_until': 0}
+    with transaction.atomic():
+        record, _ = LoginLockoutState.objects.select_for_update().get_or_create(
+            identifier_hash=key,
+            defaults={
+                'failure_count': 0,
+                'first_failure_at': now_time,
+                'lock_until': None,
+            },
+        )
 
-    first_failure = int(record.get('first_failure', now_ts) or now_ts)
-    lock_until = int(record.get('lock_until', 0) or 0)
+        if record.lock_until and record.lock_until > now_time:
+            return True, _seconds_until(record.lock_until, now_time)
 
-    if lock_until > now_ts:
-        retry_after = max(1, lock_until - now_ts)
-        cache.set(key, record, timeout=max(retry_after, lockout_window))
-        return True, retry_after
+        if (now_time - record.first_failure_at).total_seconds() > attempt_window:
+            record.failure_count = 0
+            record.first_failure_at = now_time
+            record.lock_until = None
 
-    if now_ts - first_failure > attempt_window:
-        record = {'count': 0, 'first_failure': now_ts, 'lock_until': 0}
+        record.failure_count += 1
 
-    record['count'] = int(record.get('count', 0) or 0) + 1
+        if record.failure_count >= max_attempts:
+            record.lock_until = now_time + timedelta(seconds=lockout_window)
 
-    if record['count'] >= max_attempts:
-        record['lock_until'] = now_ts + lockout_window
+        record.save()
 
-    timeout = max(lockout_window, attempt_window)
-    cache.set(key, record, timeout=timeout)
-
-    if int(record.get('lock_until', 0) or 0) > now_ts:
-        return True, max(1, int(record['lock_until']) - now_ts)
+        if record.lock_until and record.lock_until > now_time:
+            return True, _seconds_until(record.lock_until, now_time)
 
     return False, 0
 
 
 def clear_failed_logins(identifier, ip_address):
     key = _make_cache_key(identifier, ip_address)
-    cache.delete(key)
+    LoginLockoutState.objects.filter(identifier_hash=key).delete()

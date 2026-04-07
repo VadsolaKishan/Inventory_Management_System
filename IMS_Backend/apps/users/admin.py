@@ -1,7 +1,7 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin as DjangoUserAdmin
 
-from apps.users.models import PasswordResetOTP, User
+from apps.users.models import LoginLockoutState, PasswordResetOTP, User
 
 
 @admin.register(User)
@@ -18,3 +18,10 @@ class PasswordResetOTPAdmin(admin.ModelAdmin):
 	list_display = ('user', 'otp_code', 'expires_at', 'is_used', 'created_at')
 	list_filter = ('is_used', 'created_at')
 	search_fields = ('user__username', 'user__email', 'otp_code')
+
+
+@admin.register(LoginLockoutState)
+class LoginLockoutStateAdmin(admin.ModelAdmin):
+	list_display = ('identifier_hash', 'failure_count', 'first_failure_at', 'lock_until', 'updated_at')
+	search_fields = ('identifier_hash',)
+	ordering = ('-updated_at',)

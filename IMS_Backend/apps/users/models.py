@@ -81,3 +81,18 @@ class PasswordResetOTP(models.Model):
 
 	def is_valid(self):
 		return not self.is_used and self.expires_at > timezone.now()
+
+
+class LoginLockoutState(models.Model):
+	identifier_hash = models.CharField(max_length=64, unique=True, db_index=True)
+	failure_count = models.PositiveIntegerField(default=0)
+	first_failure_at = models.DateTimeField(default=timezone.now)
+	lock_until = models.DateTimeField(null=True, blank=True)
+	created_at = models.DateTimeField(auto_now_add=True)
+	updated_at = models.DateTimeField(auto_now=True)
+
+	class Meta:
+		db_table = 'ims_login_lockout_states'
+
+	def __str__(self):
+		return f'Lockout {self.identifier_hash[:12]}... ({self.failure_count})'
