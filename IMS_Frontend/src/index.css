@@ -1,0 +1,162 @@
+@import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
+  color: #14213d;
+  background-color: #f4f7fb;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  overflow-x: hidden;
+  background: radial-gradient(circle at 14% -10%, rgba(44, 127, 255, 0.28), transparent 44%),
+    radial-gradient(circle at 78% 0%, rgba(20, 146, 130, 0.22), transparent 42%),
+    linear-gradient(135deg, #f4f7fb 10%, #ebf5ff 50%, #f8fbff 100%);
+  color: #14213d;
+}
+
+#root {
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+.sidebar-scroll {
+  scrollbar-width: auto;
+  scrollbar-color: rgba(120, 120, 120, 0.95) rgba(220, 226, 234, 0.96);
+  scrollbar-gutter: stable;
+}
+
+.sidebar-scroll::-webkit-scrollbar {
+  width: 14px;
+}
+
+.sidebar-scroll::-webkit-scrollbar-track {
+  background: rgba(220, 226, 234, 0.96);
+  border-radius: 999px;
+  margin: 0;
+}
+
+.sidebar-scroll::-webkit-scrollbar-thumb {
+  background: rgba(120, 120, 120, 0.95);
+  border-radius: 999px;
+  border: 3px solid rgba(220, 226, 234, 0.96);
+  min-height: 72px;
+}
+
+.sidebar-scroll::-webkit-scrollbar-thumb:hover {
+  background: rgba(95, 95, 95, 0.98);
+}
+
+.content-scroll {
+  scrollbar-width: auto;
+  scrollbar-color: rgba(118, 118, 118, 0.97) rgba(220, 226, 234, 0.98);
+  scrollbar-gutter: stable;
+}
+
+.content-scroll::-webkit-scrollbar {
+  width: 43px;
+}
+
+.content-scroll::-webkit-scrollbar-track {
+  background: rgba(220, 226, 234, 0.98);
+  border-radius: 999px;
+  margin: 10px 0;
+}
+
+.content-scroll::-webkit-scrollbar-thumb {
+  background: rgba(118, 118, 118, 0.97);
+  border-radius: 999px;
+  border: 3px solid rgba(220, 226, 234, 0.98);
+  min-height: 96px;
+}
+
+.content-scroll::-webkit-scrollbar-thumb:hover {
+  background: rgba(92, 92, 92, 0.99);
+}
+
+.content-scroll::-webkit-scrollbar-button:single-button {
+  display: block;
+  height: 14px;
+  background-color: rgba(220, 226, 234, 0.98);
+}
+
+.content-scroll::-webkit-scrollbar-button:single-button:vertical:decrement {
+  border-radius: 999px 999px 0 0;
+  border-bottom: 1px solid rgba(193, 200, 210, 0.95);
+  background-image:
+    linear-gradient(45deg, transparent 50%, rgba(118, 118, 118, 0.97) 50%),
+    linear-gradient(-45deg, transparent 50%, rgba(118, 118, 118, 0.97) 50%);
+  background-position:
+    calc(50% - 2px) 58%,
+    calc(50% + 2px) 58%;
+  background-size: 6px 6px;
+  background-repeat: no-repeat;
+}
+
+.content-scroll::-webkit-scrollbar-button:single-button:vertical:increment {
+  border-radius: 0 0 999px 999px;
+  border-top: 1px solid rgba(193, 200, 210, 0.95);
+  background-image:
+    linear-gradient(135deg, transparent 50%, rgba(118, 118, 118, 0.97) 50%),
+    linear-gradient(-135deg, transparent 50%, rgba(118, 118, 118, 0.97) 50%);
+  background-position:
+    calc(50% - 2px) 42%,
+    calc(50% + 2px) 42%;
+  background-size: 6px 6px;
+  background-repeat: no-repeat;
+}
+
+.glass-card {
+  @apply rounded-2xl border border-white/70 bg-white/90 shadow-soft backdrop-blur;
+}
+
+.table-row-hover {
+  @apply transition-colors duration-200 hover:bg-brand-50;
+}
+
+/* Shared table behavior for all list pages: centered cells and mobile-friendly scroll */
+.overflow-x-auto {
+  -webkit-overflow-scrolling: touch;
+}
+
+.overflow-x-auto > table.min-w-full.text-left.text-sm {
+  width: 100%;
+  min-width: 56rem;
+}
+
+.overflow-x-auto > table.min-w-full.text-left.text-sm th,
+.overflow-x-auto > table.min-w-full.text-left.text-sm td {
+  text-align: center;
+  vertical-align: middle;
+}
+
+.overflow-x-auto > table.min-w-full.text-left.text-sm th {
+  white-space: nowrap;
+}
+
+.overflow-x-auto > table.min-w-full.text-left.text-sm .text-right {
+  text-align: center;
+}
+
+.overflow-x-auto > table.min-w-full.text-left.text-sm .flex.justify-end {
+  justify-content: center;
+}
+
+.animated-grid {
+  background-image: linear-gradient(to right, rgba(27, 99, 222, 0.06) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(27, 99, 222, 0.06) 1px, transparent 1px);
+  background-size: 32px 32px;
+}
