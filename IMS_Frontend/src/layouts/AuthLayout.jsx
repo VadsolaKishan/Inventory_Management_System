@@ -22,24 +22,17 @@ const highlights = [
 
 export default function AuthLayout() {
   const location = useLocation()
-  const isRegisterPage = /^\/register\/?$/.test(location.pathname)
-  const isResetPasswordPage = /^\/reset-password\/?$/.test(location.pathname)
   const isForgotPasswordPage = /^\/forgot-password\/?$/.test(location.pathname)
-  const isForgotPasswordConfirmStep = isForgotPasswordPage
-    && new URLSearchParams(location.search).get('step') === 'confirm'
-  const isScrollableAuthPage = isRegisterPage || isResetPasswordPage || isForgotPasswordConfirmStep
+  const forgotPasswordStep = isForgotPasswordPage
+    ? new URLSearchParams(location.search).get('step')
+    : null
+  const isForgotPasswordConfirmStep = isForgotPasswordPage && forgotPasswordStep === 'confirm'
+  const isCenteredAuthPage = /^\/login\/?$/.test(location.pathname)
+    || (isForgotPasswordPage && !isForgotPasswordConfirmStep)
 
   return (
-    <div
-      className={`grid lg:grid-cols-[1.1fr_0.9fr] ${
-        isScrollableAuthPage ? 'h-screen overflow-hidden' : 'min-h-screen'
-      }`}
-    >
-      <aside
-        className={`animated-grid hidden border-r border-border/70 bg-white/60 p-10 lg:block ${
-          isScrollableAuthPage ? 'h-screen' : ''
-        }`}
-      >
+    <div className="grid min-h-screen lg:h-screen lg:grid-cols-[1.1fr_0.9fr] lg:overflow-hidden">
+      <aside className="animated-grid hidden border-r border-border/70 bg-white/60 p-10 lg:sticky lg:top-0 lg:block lg:h-screen lg:overflow-hidden">
         <Motion.div
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
@@ -85,13 +78,13 @@ export default function AuthLayout() {
       </aside>
 
       <main
-        className={`flex justify-center p-4 sm:p-8 ${
-          isScrollableAuthPage
-            ? 'h-screen items-start overflow-y-auto'
-            : 'items-center'
+        className={`flex min-h-screen justify-center px-4 sm:px-8 lg:h-screen lg:min-h-0 lg:overflow-y-scroll lg:[scrollbar-gutter:stable] ${
+          isCenteredAuthPage
+            ? 'items-center py-6 sm:py-8'
+            : 'items-start pb-8 pt-6 sm:pb-10 sm:pt-8'
         }`}
       >
-        <div className={`w-full max-w-md ${isForgotPasswordConfirmStep ? 'pt-2 sm:pt-4' : ''}`}>
+        <div className="w-full max-w-md shrink-0">
           <Outlet />
         </div>
       </main>

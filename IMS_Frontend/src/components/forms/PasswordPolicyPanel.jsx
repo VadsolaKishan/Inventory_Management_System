@@ -82,7 +82,7 @@ export default function PasswordPolicyPanel({ passwordValue, passwordRules, pass
       </ul>
 
       {passwordValue && !passwordRules.isValid && (
-        <p className="mt-3 rounded-lg bg-red-50 px-2 py-1.5 text-xs font-medium text-red-700">
+        <p className="mt-3 rounded-lg bg-red-50 px-2 py-1.5 text-xs font-medium text-red-700" aria-live="polite">
           Password format is not complete yet.
         </p>
       )}

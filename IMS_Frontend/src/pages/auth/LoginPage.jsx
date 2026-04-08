@@ -3,6 +3,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useDispatch } from 'react-redux'
 import { motion as Motion } from 'framer-motion'
 import toast from 'react-hot-toast'
+import { FiEye, FiEyeOff } from 'react-icons/fi'
 
 import Button from '../../components/common/Button'
 import InputField from '../../components/common/InputField'
@@ -21,6 +22,7 @@ export default function LoginPage() {
   const [error, setError] = useState('')
   const [blockedUntilMs, setBlockedUntilMs] = useState(0)
   const [nowMs, setNowMs] = useState(() => Date.now())
+  const [showPassword, setShowPassword] = useState(false)
 
   const redirectPath = location.state?.from?.pathname
 
@@ -110,15 +112,28 @@ export default function LoginPage() {
           autoComplete="off"
         />
 
-        <InputField
-          id="password"
-          label="Password"
-          type="password"
-          value={form.password}
-          onChange={updateField('password')}
-          placeholder="Enter your password"
-          autoComplete="new-password"
-        />
+        <label className="flex flex-col gap-1.5 text-sm" htmlFor="password">
+          <span className="font-semibold text-ink">Password</span>
+          <div className="relative">
+            <input
+              id="password"
+              type={showPassword ? 'text' : 'password'}
+              value={form.password}
+              onChange={updateField('password')}
+              placeholder="Enter your password"
+              className="w-full rounded-xl border border-border bg-white px-3.5 py-2.5 pr-11 text-sm text-ink placeholder:text-muted/80 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-100"
+              autoComplete="new-password"
+            />
+            <button
+              type="button"
+              onClick={() => setShowPassword((value) => !value)}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-muted hover:text-ink"
+              aria-label={showPassword ? 'Hide password' : 'Show password'}
+            >
+              {showPassword ? <FiEyeOff /> : <FiEye />}
+            </button>
+          </div>
+        </label>
 
         {error && <p className="rounded-xl bg-red-50 px-3 py-2 text-sm font-medium text-red-700">{error}</p>}
 
