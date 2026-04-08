@@ -98,7 +98,7 @@ export default function Topbar({ onOpenMobile }) {
         sidebarOpen ? 'lg:left-[270px]' : 'lg:left-[90px]',
       )}
     >
-      <div className="flex items-center justify-between gap-2 px-3 py-3 sm:gap-4 sm:px-6">
+      <div className="flex items-center justify-between gap-2 px-3 py-3 sm:gap-4 sm:px-5">
         <div className="flex min-w-0 flex-1 items-start gap-2 sm:items-center">
           <button
             type="button"

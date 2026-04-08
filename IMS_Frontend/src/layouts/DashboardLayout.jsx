@@ -101,7 +101,7 @@ export default function DashboardLayout() {
 
       <div className="content-scroll flex h-screen min-w-0 flex-1 flex-col overflow-y-auto pt-[72px] sm:pt-[84px] lg:pt-[92px]">
         <Topbar onOpenMobile={() => setMobileSidebarOpen(true)} />
-        <main className="flex-1 max-w-full p-3 sm:p-6">
+        <main className="flex-1 max-w-full px-3 py-3 sm:px-5 sm:py-6">
           <Outlet />
         </main>
       </div>

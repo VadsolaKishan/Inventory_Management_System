@@ -80,7 +80,7 @@ export default function AuthLayout() {
       </aside>
 
       <main
-        className={`flex min-h-screen justify-center px-4 sm:px-8 lg:h-screen lg:min-h-0 lg:overflow-y-scroll lg:[scrollbar-gutter:stable] ${
+        className={`flex min-h-screen justify-center px-3 sm:px-5 lg:h-screen lg:min-h-0 lg:overflow-y-scroll lg:[scrollbar-gutter:stable] ${
           isCenteredAuthPage
             ? 'items-center py-6 sm:py-8'
             : isMobileCenteredOnlyPage
