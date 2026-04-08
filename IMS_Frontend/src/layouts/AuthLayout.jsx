@@ -30,6 +30,7 @@ export default function AuthLayout() {
   const isForgotPasswordConfirmStep = isForgotPasswordPage && forgotPasswordStep === 'confirm'
   const isCenteredAuthPage = /^\/login\/?$/.test(location.pathname)
     || (isForgotPasswordPage && !isForgotPasswordConfirmStep)
+  const isMobileCenteredOnlyPage = isRegisterPage || isForgotPasswordConfirmStep
 
   return (
     <div className="grid min-h-screen lg:h-screen lg:grid-cols-[1.1fr_0.9fr] lg:overflow-hidden">
@@ -82,7 +83,7 @@ export default function AuthLayout() {
         className={`flex min-h-screen justify-center px-4 sm:px-8 lg:h-screen lg:min-h-0 lg:overflow-y-scroll lg:[scrollbar-gutter:stable] ${
           isCenteredAuthPage
             ? 'items-center py-6 sm:py-8'
-            : isRegisterPage
+            : isMobileCenteredOnlyPage
               ? 'items-center py-6 sm:py-8 lg:items-start lg:pb-10 lg:pt-8'
             : 'items-start pb-8 pt-6 sm:pb-10 sm:pt-8'
         }`}
