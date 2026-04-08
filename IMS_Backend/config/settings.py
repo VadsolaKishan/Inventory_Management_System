@@ -301,7 +301,7 @@ if EMAIL_HOST.lower().endswith("gmail.com"):
     EMAIL_HOST_PASSWORD = EMAIL_HOST_PASSWORD.replace(" ", "")
 EMAIL_USE_TLS = to_bool(os.getenv("EMAIL_USE_TLS"), default=True)
 EMAIL_USE_SSL = to_bool(os.getenv("EMAIL_USE_SSL"), default=False)
-EMAIL_TIMEOUT = int(os.getenv("EMAIL_TIMEOUT", "20"))
+EMAIL_TIMEOUT = int(os.getenv("EMAIL_TIMEOUT", "8"))
 
 DEFAULT_FROM_EMAIL = os.getenv("DEFAULT_FROM_EMAIL", EMAIL_HOST_USER or "no-reply@ims.local")
 PASSWORD_RESET_OTP_SUBJECT = os.getenv(
@@ -311,6 +311,10 @@ PASSWORD_RESET_OTP_SUBJECT = os.getenv(
 OTP_REQUIRE_REAL_EMAIL_DELIVERY = to_bool(
     os.getenv("OTP_REQUIRE_REAL_EMAIL_DELIVERY"),
     default=True,
+)
+OTP_REQUEST_FAIL_HARD = to_bool(
+    os.getenv("OTP_REQUEST_FAIL_HARD"),
+    default=False,
 )
 
 PASSWORD_RESET_OTP_EXPIRY_MINUTES = int(os.getenv("PASSWORD_RESET_OTP_EXPIRY_MINUTES", "10"))

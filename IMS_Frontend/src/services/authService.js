@@ -10,7 +10,7 @@ export const authService = {
   requestPasswordOtp: (payload) => api.post(
     'auth/password-reset/request-otp/',
     payload,
-    { timeout: 45000 },
+    { timeout: 15000 },
   ).then(unwrap),
   confirmPasswordOtp: (payload) => api.post('auth/password-reset/confirm/', payload).then(unwrap),
   me: () => api.get('auth/me/').then(unwrap),

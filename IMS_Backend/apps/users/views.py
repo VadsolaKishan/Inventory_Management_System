@@ -205,6 +205,9 @@ class AuthViewSet(viewsets.GenericViewSet):
 			otp.is_used = True
 			otp.save(update_fields=['is_used'])
 			logger.exception('Failed to send password reset OTP email for user_id=%s', user.id)
+			if not getattr(settings, 'OTP_REQUEST_FAIL_HARD', False):
+				# Keep response stable in production while avoiding account enumeration.
+				return Response(default_response, status=status.HTTP_200_OK)
 			return Response(
 				{'detail': 'Unable to deliver OTP email right now. Please verify email settings and try again.'},
 				status=status.HTTP_503_SERVICE_UNAVAILABLE,
