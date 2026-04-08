@@ -44,7 +44,8 @@ export default function ForgotPasswordPage() {
       const isTimeout = requestError?.code === 'ECONNABORTED'
         || /timeout/i.test(String(requestError?.message || ''))
       if (isTimeout) {
-        setError('Request is taking longer than expected. Please try again in a few seconds.')
+        setSearchParams({ step: 'confirm' }, { replace: true })
+        toast('Request is taking longer than expected. Check your email and enter OTP if received.')
         return
       }
       setError(extractErrorMessage(requestError, 'Unable to request OTP.'))
