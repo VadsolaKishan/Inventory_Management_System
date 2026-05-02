@@ -79,9 +79,10 @@ export default function RegisterPage() {
     <Motion.div
       initial={{ opacity: 0, y: 14 }}
       animate={{ opacity: 1, y: 0 }}
-      className="glass-card p-6 sm:p-7"
+      className="glass-card p-6 sm:p-7 pt-5 sm:pt-6"
     >
       <div className="mb-6 text-center">
+        <img src="/favicon.svg" alt="Logo" className="mx-auto mb-3 h-10 w-10 object-contain lg:hidden" />
         <p className="text-sm font-semibold uppercase tracking-[0.2em] text-brand-700">Nexus IMS</p>
         <h2 className="mt-2 font-display text-3xl text-ink">Create Account</h2>
         <p className="mt-2 text-sm text-muted">Set up access for your inventory team.</p>

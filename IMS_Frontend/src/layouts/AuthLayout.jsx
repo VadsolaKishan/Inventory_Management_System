@@ -42,6 +42,10 @@ export default function AuthLayout() {
           className="mx-auto flex h-full max-w-xl flex-col justify-between"
         >
           <div>
+            <div className="mb-8 flex items-center gap-3">
+              <img src="/favicon.svg" alt="Nexus IMS" className="h-12 w-12 object-contain" />
+              <span className="font-display text-2xl text-ink">Nexus IMS</span>
+            </div>
             <p className="inline-flex items-center rounded-full border border-brand-100 bg-brand-50 px-3 py-1 text-xs font-semibold text-brand-700">
               Intelligent Inventory Platform
             </p>

@@ -113,8 +113,8 @@ export default function Sidebar({ mobileOpen, onCloseMobile }) {
               sidebarOpen ? 'gap-3' : 'justify-center',
             )}
           >
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-brand-600 text-white">
-              <FiPackage />
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center p-0">
+              <img src="/favicon.svg" alt="Nexus IMS Logo" className="h-full w-full object-contain" />
             </div>
             <div
               className={clsx(
